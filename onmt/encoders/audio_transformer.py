@@ -181,6 +181,7 @@ class TransformerEncoder(EncoderBase):
 
         emb = self.embeddings(src)
 
+        # (t, batch_size, nfft) -> (batch_size, t, nfft)
         out = emb.transpose(0, 1).contiguous()
         mask = ~sequence_mask(lengths).unsqueeze(1)
         # Run the forward pass of every layer of the tranformer.
@@ -188,6 +189,7 @@ class TransformerEncoder(EncoderBase):
             out = layer(out, mask)
         out = self.layer_norm(out)
 
+        # (batch_size, t, nfft) -> (t, batch_size, nfft) 
         return emb, out.transpose(0, 1).contiguous(), lengths
 
     def update_dropout(self, dropout, attention_dropout):
