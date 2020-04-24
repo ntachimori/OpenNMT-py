@@ -1,7 +1,9 @@
 """
 Implementation of "Attention is All You Need"
 """
+import math
 
+import torch
 import torch.nn as nn
 
 from onmt.encoders.encoder import EncoderBase
@@ -9,6 +11,50 @@ from onmt.modules import MultiHeadedAttention
 from onmt.modules.position_ffn import PositionwiseFeedForward
 from onmt.utils.misc import sequence_mask
 
+class PositionalEncoding(torch.nn.Module):
+    """Positional encoding.
+    :param int d_model: embedding dim
+    :param float dropout_rate: dropout rate
+    :param int max_len: maximum input length
+    """
+
+    def __init__(self, d_model, dropout_rate, max_len=5000):
+        """Construct an PositionalEncoding object."""
+        super(PositionalEncoding, self).__init__()
+        self.d_model = d_model
+        self.xscale = math.sqrt(self.d_model)
+        self.dropout = torch.nn.Dropout(p=dropout_rate)
+        self.pe = None
+        self.extend_pe(torch.tensor(0.0).expand(1, max_len))
+
+    def extend_pe(self, x):
+        """Reset the positional encodings."""
+        if self.pe is not None:
+            if self.pe.size(1) >= x.size(1):
+                if self.pe.dtype != x.dtype or self.pe.device != x.device:
+                    self.pe = self.pe.to(dtype=x.dtype, device=x.device)
+                return
+        pe = torch.zeros(x.size(1), self.d_model)
+        position = torch.arange(0, x.size(1), dtype=torch.float32).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, self.d_model, 2, dtype=torch.float32)
+            * -(math.log(10000.0) / self.d_model)
+        )
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.pe = pe.to(device=x.device, dtype=x.dtype)
+
+    def forward(self, x: torch.Tensor):
+        """Add positional encoding.
+        Args:
+            x (torch.Tensor): Input. Its shape is (batch, time, ...)
+        Returns:
+            torch.Tensor: Encoded tensor. Its shape is (batch, time, ...)
+        """
+        self.extend_pe(x)
+        x = x * self.xscale + self.pe[:, : x.size(1)]
+        return self.dropout(x)
 
 class TransformerEncoderLayer(nn.Module):
     """
@@ -89,10 +135,19 @@ class TransformerEncoder(EncoderBase):
     """
 
     def __init__(self, num_layers, d_model, heads, d_ff, dropout,
-                 attention_dropout, embeddings, max_relative_positions):
+                 attention_dropout, embeddings, max_relative_positions, 
+                 sample_rate, window_size):
         super(TransformerEncoder, self).__init__()
 
-        self.embeddings = embeddings
+        input_size = int(math.floor((sample_rate * window_size) / 2) + 1)
+        positional_dropout_rate = 0.2
+        self.embeddings = self.embed = torch.nn.Sequential(
+                torch.nn.Linear(input_size, dropout),
+                torch.nn.LayerNorm(),
+                torch.nn.Dropout(dropout),
+                torch.nn.ReLU(),
+                PositionalEncoding(d_model, positional_dropout_rate),
+            )
         self.transformer = nn.ModuleList(
             [TransformerEncoderLayer(
                 d_model, heads, d_ff, dropout, attention_dropout,
@@ -101,7 +156,7 @@ class TransformerEncoder(EncoderBase):
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
     @classmethod
-    def from_opt(cls, opt, embeddings):
+    def from_opt(cls, opt, embeddings=None):
         """Alternate constructor."""
         return cls(
             opt.enc_layers,
@@ -112,11 +167,17 @@ class TransformerEncoder(EncoderBase):
             opt.attention_dropout[0] if type(opt.attention_dropout)
             is list else opt.attention_dropout,
             embeddings,
-            opt.max_relative_positions)
+            opt.max_relative_positions,
+            opt.sample_rate,
+            opt.window_size)
 
     def forward(self, src, lengths=None):
         """See :func:`EncoderBase.forward()`"""
         self._check_args(src, lengths)
+
+        batch_size, _, nfft, t = src.size()
+        # (batch_size, _, nffft,t) -> (t, batch_size, nfft)
+        src = src.transpose(0, 1).transpose(0, 3).contiguous().view(t, batch_size, nfft)
 
         emb = self.embeddings(src)
 
