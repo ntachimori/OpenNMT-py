@@ -73,6 +73,8 @@ def build_encoder(opt, embeddings):
     """
     enc_type = opt.encoder_type if opt.model_type == "text" \
         or opt.model_type == "vec" else opt.model_type
+    if opt.model_type == "audio" and opt.encoder_type == "transformer":
+        enc_type = "audio-transformer"
     return str2enc[enc_type].from_opt(opt, embeddings)
 
 
