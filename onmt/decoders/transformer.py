@@ -220,7 +220,8 @@ class TransformerDecoder(DecoderBase):
                  copy_attn, self_attn_type, dropout, attention_dropout,
                  embeddings, max_relative_positions, aan_useffn,
                  full_context_alignment, alignment_layer,
-                 alignment_heads):
+                 alignment_heads,
+                 audio_model=False):
         super(TransformerDecoder, self).__init__()
 
         self.embeddings = embeddings
@@ -244,6 +245,8 @@ class TransformerDecoder(DecoderBase):
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
         self.alignment_layer = alignment_layer
+
+        self.audio_model = audio_model
 
     @classmethod
     def from_opt(cls, opt, embeddings):
@@ -301,7 +304,7 @@ class TransformerDecoder(DecoderBase):
 
         pad_idx = self.embeddings.word_padding_idx
         src_lens = kwargs["memory_lengths"]
-        src_max_len = self.state["src"].shape[0]
+        src_max_len = self.state["src"].shape[0] if not self.audio_model else self.state["src"].shape[3] 
         src_pad_mask = ~sequence_mask(src_lens, src_max_len).unsqueeze(1)
         tgt_pad_mask = tgt_words.data.eq(pad_idx).unsqueeze(1)  # [B, 1, T_tgt]
 

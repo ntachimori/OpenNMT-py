@@ -9,52 +9,9 @@ import torch.nn as nn
 from onmt.encoders.encoder import EncoderBase
 from onmt.modules import MultiHeadedAttention
 from onmt.modules.position_ffn import PositionwiseFeedForward
+from onmt.modules.embeddings import PositionalEncoding
 from onmt.utils.misc import sequence_mask
 
-class PositionalEncoding(torch.nn.Module):
-    """Positional encoding.
-    :param int d_model: embedding dim
-    :param float dropout_rate: dropout rate
-    :param int max_len: maximum input length
-    """
-
-    def __init__(self, d_model, dropout_rate, max_len=5000):
-        """Construct an PositionalEncoding object."""
-        super(PositionalEncoding, self).__init__()
-        self.d_model = d_model
-        self.xscale = math.sqrt(self.d_model)
-        self.dropout = torch.nn.Dropout(p=dropout_rate)
-        self.pe = None
-        self.extend_pe(torch.tensor(0.0).expand(1, max_len))
-
-    def extend_pe(self, x):
-        """Reset the positional encodings."""
-        if self.pe is not None:
-            if self.pe.size(1) >= x.size(1):
-                if self.pe.dtype != x.dtype or self.pe.device != x.device:
-                    self.pe = self.pe.to(dtype=x.dtype, device=x.device)
-                return
-        pe = torch.zeros(x.size(1), self.d_model)
-        position = torch.arange(0, x.size(1), dtype=torch.float32).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, self.d_model, 2, dtype=torch.float32)
-            * -(math.log(10000.0) / self.d_model)
-        )
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)
-        self.pe = pe.to(device=x.device, dtype=x.dtype)
-
-    def forward(self, x: torch.Tensor):
-        """Add positional encoding.
-        Args:
-            x (torch.Tensor): Input. Its shape is (batch, time, ...)
-        Returns:
-            torch.Tensor: Encoded tensor. Its shape is (batch, time, ...)
-        """
-        self.extend_pe(x)
-        x = x * self.xscale + self.pe[:, : x.size(1)]
-        return self.dropout(x)
 
 class TransformerEncoderLayer(nn.Module):
     """
@@ -102,8 +59,48 @@ class TransformerEncoderLayer(nn.Module):
         self.feed_forward.update_dropout(dropout)
         self.dropout.p = dropout
 
+class AudioEmbedding(nn.Module):
+    def __init__(self, vec_size,
+                 emb_dim,
+                 position_encoding=True,
+                 dropout=0):
+        super(AudioEmbedding, self).__init__()
+        self.embedding_size = emb_dim
+       
+        # positional_dropout_rate = 0.2
+        # self.proj = torch.nn.Sequential(
+        #         torch.nn.Linear(vec_size, emb_dim),
+        #         torch.nn.LayerNorm(emb_dim),
+        #         torch.nn.Dropout(dropout),
+        #         torch.nn.ReLU(),
+        #         PositionalEncoding(emb_dim, positional_dropout_rate),
+        #     )
+        
+        self.proj = nn.Linear(vec_size, emb_dim, bias=False)
+        self.word_padding_idx = 0  # vector seqs are zero-padded
+        self.position_encoding = position_encoding
+        if self.position_encoding:
+            self.pe = PositionalEncoding(dropout, self.embedding_size)
 
-class TransformerEncoder(EncoderBase):
+
+    def forward(self, x, step=None):
+        """
+        Args:
+            x (FloatTensor): input, ``(len, batch, 1, vec_feats)``.
+
+        Returns:
+            FloatTensor: embedded vecs ``(len, batch, embedding_size)``.
+        """
+        x = self.proj(x).squeeze(2)
+        if self.position_encoding:
+            x = self.pe(x, step=step)
+        return x
+
+    def load_pretrained_vectors(self, file):
+        assert not file
+
+
+class AudioTransformerEncoder(EncoderBase):
     """The Transformer encoder from "Attention is All You Need"
     :cite:`DBLP:journals/corr/VaswaniSPUJGKP17`
 
@@ -137,17 +134,11 @@ class TransformerEncoder(EncoderBase):
     def __init__(self, num_layers, d_model, heads, d_ff, dropout,
                  attention_dropout, embeddings, max_relative_positions, 
                  sample_rate, window_size):
-        super(TransformerEncoder, self).__init__()
+        super(AudioTransformerEncoder, self).__init__()
 
         input_size = int(math.floor((sample_rate * window_size) / 2) + 1)
-        positional_dropout_rate = 0.2
-        self.embeddings = self.embed = torch.nn.Sequential(
-                torch.nn.Linear(input_size, dropout),
-                torch.nn.LayerNorm(),
-                torch.nn.Dropout(dropout),
-                torch.nn.ReLU(),
-                PositionalEncoding(d_model, positional_dropout_rate),
-            )
+        print(f"input_size={input_size}")
+        self.embeddings = AudioEmbedding(input_size, d_model)
         self.transformer = nn.ModuleList(
             [TransformerEncoderLayer(
                 d_model, heads, d_ff, dropout, attention_dropout,
@@ -173,11 +164,10 @@ class TransformerEncoder(EncoderBase):
 
     def forward(self, src, lengths=None):
         """See :func:`EncoderBase.forward()`"""
-        self._check_args(src, lengths)
-
         batch_size, _, nfft, t = src.size()
         # (batch_size, _, nffft,t) -> (t, batch_size, nfft)
         src = src.transpose(0, 1).transpose(0, 3).contiguous().view(t, batch_size, nfft)
+        self._check_args(src, lengths)
 
         emb = self.embeddings(src)
 
