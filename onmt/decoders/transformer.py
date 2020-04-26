@@ -266,7 +266,8 @@ class TransformerDecoder(DecoderBase):
             opt.aan_useffn,
             opt.full_context_alignment,
             opt.alignment_layer,
-            alignment_heads=opt.alignment_heads)
+            alignment_heads=opt.alignment_heads,
+            audio_model=opt.model_type=="audio")
 
     def init_state(self, src, memory_bank, enc_hidden):
         """Initialize decoder state."""
