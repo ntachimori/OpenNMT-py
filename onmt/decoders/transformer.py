@@ -51,8 +51,12 @@ class TransformerDecoderLayer(nn.Module):
     def __init__(self, d_model, heads, d_ff, dropout, attention_dropout,
                  self_attn_type="scaled-dot", max_relative_positions=0,
                  aan_useffn=False, full_context_alignment=False,
-                 alignment_heads=0):
+                 alignment_heads=0,
+                 memory_bank_size=None):
         super(TransformerDecoderLayer, self).__init__()
+
+        if not memory_bank_size:
+            memory_bank_size = d_model
 
         if self_attn_type == "scaled-dot":
             self.self_attn = MultiHeadedAttention(
@@ -64,7 +68,7 @@ class TransformerDecoderLayer(nn.Module):
                                               aan_useffn=aan_useffn)
 
         self.context_attn = MultiHeadedAttention(
-            heads, d_model, dropout=attention_dropout)
+            heads, d_model, dropout=attention_dropout, kdim=memory_bank_size, vdim=memory_bank_size)
         self.feed_forward = PositionwiseFeedForward(d_model, d_ff, dropout)
         self.layer_norm_1 = nn.LayerNorm(d_model, eps=1e-6)
         self.layer_norm_2 = nn.LayerNorm(d_model, eps=1e-6)
@@ -221,6 +225,7 @@ class TransformerDecoder(DecoderBase):
                  embeddings, max_relative_positions, aan_useffn,
                  full_context_alignment, alignment_layer,
                  alignment_heads,
+                 memory_bank_size=None,
                  audio_model=False):
         super(TransformerDecoder, self).__init__()
 
@@ -235,7 +240,8 @@ class TransformerDecoder(DecoderBase):
              max_relative_positions=max_relative_positions,
              aan_useffn=aan_useffn,
              full_context_alignment=full_context_alignment,
-             alignment_heads=alignment_heads)
+             alignment_heads=alignment_heads,
+             memory_bank_size=memory_bank_size)
              for i in range(num_layers)])
 
         # previously, there was a GlobalAttention module here for copy
@@ -267,6 +273,7 @@ class TransformerDecoder(DecoderBase):
             opt.full_context_alignment,
             opt.alignment_layer,
             alignment_heads=opt.alignment_heads,
+            memory_bank_size=opt.enc_rnn_size,
             audio_model=opt.model_type=="audio")
 
     def init_state(self, src, memory_bank, enc_hidden):
