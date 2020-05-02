@@ -68,15 +68,15 @@ class AudioEmbedding(nn.Module):
         self.embedding_size = emb_dim
        
         # positional_dropout_rate = 0.2
-        # self.proj = torch.nn.Sequential(
-        #         torch.nn.Linear(vec_size, emb_dim),
-        #         torch.nn.LayerNorm(emb_dim),
-        #         torch.nn.Dropout(dropout),
-        #         torch.nn.ReLU(),
-        #         PositionalEncoding(emb_dim, positional_dropout_rate),
-        #     )
+        self.proj = torch.nn.Sequential(
+                torch.nn.Linear(vec_size, emb_dim),
+                torch.nn.LayerNorm(emb_dim),
+                torch.nn.Dropout(dropout),
+                torch.nn.ReLU() #,
+                # PositionalEncoding(emb_dim, positional_dropout_rate),
+            )
         
-        self.proj = nn.Linear(vec_size, emb_dim, bias=False)
+        # self.proj = nn.Linear(vec_size, emb_dim, bias=False)
         self.word_padding_idx = 0  # vector seqs are zero-padded
         self.position_encoding = position_encoding
         if self.position_encoding:
