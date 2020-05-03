@@ -153,7 +153,7 @@ class AudioTransformerEncoder(EncoderBase):
             opt.enc_layers,
             opt.enc_rnn_size,
             opt.heads,
-            opt.transformer_ff,
+            opt.enc_transformer_ff if opt.enc_transformer_ff > 0 else  opt.transformer_ff,
             opt.dropout[0] if type(opt.dropout) is list else opt.dropout,
             opt.attention_dropout[0] if type(opt.attention_dropout)
             is list else opt.attention_dropout,

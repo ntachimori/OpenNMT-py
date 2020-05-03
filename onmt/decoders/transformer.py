@@ -261,7 +261,7 @@ class TransformerDecoder(DecoderBase):
             opt.dec_layers,
             opt.dec_rnn_size,
             opt.heads,
-            opt.transformer_ff,
+            opt.dec_transformer_ff if opt.dec_transformer_ff > 0 else  opt.transformer_ff,
             opt.copy_attn,
             opt.self_attn_type,
             opt.dropout[0] if type(opt.dropout) is list else opt.dropout,

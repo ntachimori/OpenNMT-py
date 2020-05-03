@@ -174,6 +174,10 @@ def model_opts(parser):
               help='Number of heads for transformer self-attention')
     group.add('--transformer_ff', '-transformer_ff', type=int, default=2048,
               help='Size of hidden transformer feed-forward')
+    group.add('--enc_transformer_ff', '-enc_transformer_ff', type=int, default=0,
+              help='Size of hidden transformer feed-forward')
+    group.add('--dec_transformer_ff', '-dec_transformer_ff', type=int, default=0,
+              help='Size of hidden transformer feed-forward')
     group.add('--aan_useffn', '-aan_useffn', action="store_true",
               help='Turn on the FFN layer in the AAN decoder')
 
