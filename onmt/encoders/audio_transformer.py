@@ -160,7 +160,7 @@ class AudioTransformerEncoder(EncoderBase):
             embeddings,
             opt.max_relative_positions,
             opt.sample_rate,
-            opt.window_size
+            opt.window_size,
             opt.fbank_dim)
 
     def forward(self, src, lengths=None):
