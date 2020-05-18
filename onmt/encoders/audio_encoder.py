@@ -29,7 +29,7 @@ class AudioEncoder(EncoderBase):
 
     def __init__(self, rnn_type, enc_layers, dec_layers, brnn,
                  enc_rnn_size, dec_rnn_size, enc_pooling, dropout,
-                 sample_rate, window_size):
+                 sample_rate, window_size, fbank_dim):
         super(AudioEncoder, self).__init__()
         self.enc_layers = enc_layers
         self.rnn_type = rnn_type
@@ -43,7 +43,7 @@ class AudioEncoder(EncoderBase):
         dec_rnn_size_real = dec_rnn_size // num_directions
         self.dec_rnn_size_real = dec_rnn_size_real
         self.dec_rnn_size = dec_rnn_size
-        input_size = int(math.floor((sample_rate * window_size) / 2) + 1)
+        input_size = int(math.floor((sample_rate * window_size) / 2) + 1) if fbank_dim==0 else fbank_dim
         enc_pooling = enc_pooling.split(',')
         assert len(enc_pooling) == enc_layers or len(enc_pooling) == 1
         if len(enc_pooling) == 1:
@@ -96,7 +96,8 @@ class AudioEncoder(EncoderBase):
             opt.audio_enc_pooling,
             opt.dropout,
             opt.sample_rate,
-            opt.window_size)
+            opt.window_size,
+            opt.fbank_dim)
 
     def forward(self, src, lengths=None):
         """See :func:`onmt.encoders.encoder.EncoderBase.forward()`"""

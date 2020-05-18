@@ -36,7 +36,7 @@ class AudioDataReader(DataReaderBase):
     """
 
     def __init__(self, sample_rate=0, window_size=0, window_stride=0,
-                 window=None, normalize_audio=True, truncate=None):
+                 window=None, normalize_audio=True, truncate=None, fbank_dim=0):
         self._check_deps()
         self.sample_rate = sample_rate
         self.window_size = window_size
@@ -44,11 +44,12 @@ class AudioDataReader(DataReaderBase):
         self.window = window
         self.normalize_audio = normalize_audio
         self.truncate = truncate
+        self.fbank_dim = fbank_dim
 
     @classmethod
     def from_opt(cls, opt):
         return cls(sample_rate=opt.sample_rate, window_size=opt.window_size,
-                   window_stride=opt.window_stride, window=opt.window)
+                   window_stride=opt.window_stride, window=opt.window, use_fbank=opt.fbank_dim)
 
     @classmethod
     def _check_deps(cls):
@@ -81,10 +82,16 @@ class AudioDataReader(DataReaderBase):
         win_length = n_fft
         hop_length = int(self.sample_rate * self.window_stride)
         # STFT
-        d = librosa.stft(sound, n_fft=n_fft, hop_length=hop_length,
-                         win_length=win_length, window=self.window)
-        spect, _ = librosa.magphase(d)
-        spect = np.log1p(spect)
+        if self.fbank_dim>0:
+            d = librosa.feature.melspectrogram(y=sound, sr=sample_rate_, n_mels=self.fbank_dim,
+                                                n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=self.window)
+            spect = np.log1p(d)
+        else:
+            d = librosa.stft(sound, n_fft=n_fft, hop_length=hop_length,
+                            win_length=win_length, window=self.window)
+            spect, _ = librosa.magphase(d)
+            spect = np.log1p(spect)
+        
         spect = torch.FloatTensor(spect)
         if self.normalize_audio:
             mean = spect.mean()
