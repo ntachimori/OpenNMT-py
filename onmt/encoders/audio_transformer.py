@@ -13,6 +13,87 @@ from onmt.modules.embeddings import PositionalEncoding
 from onmt.utils.misc import sequence_mask
 
 
+class AudioEmbedding(nn.Module):
+    def __init__(self, vec_size,
+                 emb_dim,
+                 position_encoding=True,
+                 dropout=0):
+        super(AudioEmbedding, self).__init__()
+        self.embedding_size = emb_dim
+       
+        # positional_dropout_rate = 0.2
+        self.proj = torch.nn.Sequential(
+                torch.nn.Linear(vec_size, emb_dim),
+                torch.nn.LayerNorm(emb_dim),
+                torch.nn.Dropout(dropout),
+                torch.nn.ReLU() #,
+                # PositionalEncoding(emb_dim, positional_dropout_rate),
+            )
+        
+        # self.proj = nn.Linear(vec_size, emb_dim, bias=False)
+        self.word_padding_idx = 0  # vector seqs are zero-padded
+        self.position_encoding = position_encoding
+        if self.position_encoding:
+            self.pe = PositionalEncoding(dropout, self.embedding_size)
+
+
+    def forward(self, x, step=None):
+        """
+        Args:
+            x (FloatTensor): input, ``(len, batch, 1, vec_feats)``.
+
+        Returns:
+            FloatTensor: embedded vecs ``(len, batch, embedding_size)``.
+        """
+        x = self.proj(x).squeeze(2)
+        if self.position_encoding:
+            x = self.pe(x, step=step)
+        return x
+
+    def load_pretrained_vectors(self, file):
+        assert not file
+
+class Conv2dSubsampling(torch.nn.Module):
+    """Convolutional 2D subsampling (to 1/4 length).
+    :param int idim: input dim
+    :param int odim: output dim
+    :param flaot dropout_rate: dropout rate
+    """
+
+    def __init__(self, idim, odim, dropout_rate):
+        """Construct an Conv2dSubsampling object."""
+        super(Conv2dSubsampling, self).__init__()
+        self.conv = torch.nn.Sequential(
+            torch.nn.Conv2d(1, odim, 3, 2),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(odim, odim, 3, 2),
+            torch.nn.ReLU(),
+        )
+        self.out = torch.nn.Sequential(
+            torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim),
+            PositionalEncoding(dropout_rate, self.embedding_size)
+        )
+
+    def forward(self, x, x_mask):
+        """Subsample x.
+        :param torch.Tensor x: input tensor
+        :param torch.Tensor x_mask: input mask
+        :return: subsampled x and mask
+        :rtype Tuple[torch.Tensor, torch.Tensor]
+        """
+        x = x.unsqueeze(1)  # (b, t, f) -> (b, c, t, f)
+        x = self.conv(x)
+        b, c, t, f = x.size()
+        # (b, c, t, f) -> (b, t, c, f) -> (b, t, c*f)
+        x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
+        if x_mask is None:
+            return x, None
+        return x, x_mask[:, :, :-2:2][:, :, :-2:2]
+
+    def load_pretrained_vectors(self, file):
+        assert not file
+
+
 class TransformerEncoderLayer(nn.Module):
     """
     A single layer of the transformer encoder.
@@ -59,45 +140,7 @@ class TransformerEncoderLayer(nn.Module):
         self.feed_forward.update_dropout(dropout)
         self.dropout.p = dropout
 
-class AudioEmbedding(nn.Module):
-    def __init__(self, vec_size,
-                 emb_dim,
-                 position_encoding=True,
-                 dropout=0):
-        super(AudioEmbedding, self).__init__()
-        self.embedding_size = emb_dim
-       
-        # positional_dropout_rate = 0.2
-        self.proj = torch.nn.Sequential(
-                torch.nn.Linear(vec_size, emb_dim),
-                torch.nn.LayerNorm(emb_dim),
-                torch.nn.Dropout(dropout),
-                torch.nn.ReLU() #,
-                # PositionalEncoding(emb_dim, positional_dropout_rate),
-            )
-        
-        # self.proj = nn.Linear(vec_size, emb_dim, bias=False)
-        self.word_padding_idx = 0  # vector seqs are zero-padded
-        self.position_encoding = position_encoding
-        if self.position_encoding:
-            self.pe = PositionalEncoding(dropout, self.embedding_size)
 
-
-    def forward(self, x, step=None):
-        """
-        Args:
-            x (FloatTensor): input, ``(len, batch, 1, vec_feats)``.
-
-        Returns:
-            FloatTensor: embedded vecs ``(len, batch, embedding_size)``.
-        """
-        x = self.proj(x).squeeze(2)
-        if self.position_encoding:
-            x = self.pe(x, step=step)
-        return x
-
-    def load_pretrained_vectors(self, file):
-        assert not file
 
 
 class AudioTransformerEncoder(EncoderBase):
@@ -170,11 +213,12 @@ class AudioTransformerEncoder(EncoderBase):
         src = src.transpose(0, 1).transpose(0, 3).contiguous().view(t, batch_size, nfft)
         self._check_args(src, lengths)
 
+        mask = ~sequence_mask(lengths).unsqueeze(1)
         emb = self.embeddings(src)
 
         # (t, batch_size, nfft) -> (batch_size, t, nfft)
         out = emb.transpose(0, 1).contiguous()
-        mask = ~sequence_mask(lengths).unsqueeze(1)
+        
         # Run the forward pass of every layer of the tranformer.
         for layer in self.transformer:
             out = layer(out, mask)
