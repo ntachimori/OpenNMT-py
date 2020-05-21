@@ -40,7 +40,7 @@ class AudioEmbedding(nn.Module):
     def forward(self, x, step=None):
         """
         Args:
-            x (FloatTensor): input, ``(len, batch, 1, vec_feats)``.
+            x (FloatTensor): input, ``(len, batch, vec_feats)``.
 
         Returns:
             FloatTensor: embedded vecs ``(len, batch, embedding_size)``.
@@ -76,12 +76,12 @@ class Conv2dSubsampling(torch.nn.Module):
 
     def forward(self, x, x_mask):
         """Subsample x.
-        :param torch.Tensor x: input tensor
+        :param torch.Tensor x: input tensor(t, batch_size, nfft)
         :param torch.Tensor x_mask: input mask
         :return: subsampled x and mask
         :rtype Tuple[torch.Tensor, torch.Tensor]
         """
-        x = x.unsqueeze(1)  # (b, t, f) -> (b, c, t, f)
+        x = x.transpose(0, 1).contiguous().unsqueeze(1)  # (t, b, f) -> (b, t, f) -> (b, c, t, f)
         x = self.conv(x)
         b, c, t, f = x.size()
         # (b, c, t, f) -> (b, t, c, f) -> (b, t, c*f)
@@ -181,7 +181,8 @@ class AudioTransformerEncoder(EncoderBase):
 
         input_size = int(math.floor((sample_rate * window_size) / 2) + 1) if fbank_dim == 0 else fbank_dim
         print(f"input_size={input_size}")
-        self.embeddings = AudioEmbedding(input_size, d_model,dropout=dropout)
+        # self.embeddings = AudioEmbedding(input_size, d_model,dropout=dropout)
+        self.embeddings = Conv2dSubsampling(input_size, d_model, dropout_rate=dropout)
         self.transformer = nn.ModuleList(
             [TransformerEncoderLayer(
                 d_model, heads, d_ff, dropout, attention_dropout,
@@ -214,7 +215,8 @@ class AudioTransformerEncoder(EncoderBase):
         self._check_args(src, lengths)
 
         mask = ~sequence_mask(lengths).unsqueeze(1)
-        emb = self.embeddings(src)
+        emb, mask = self.embeddings(src, mask)
+        # emb = self.embeddings(src)
 
         # (t, batch_size, nfft) -> (batch_size, t, nfft)
         out = emb.transpose(0, 1).contiguous()
