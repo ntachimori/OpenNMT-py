@@ -55,6 +55,19 @@ def build_torch_optimizer(model, opt):
             lr=opt.learning_rate,
             betas=betas,
             eps=1e-9)
+    elif opt.optim == 'adamw':
+        optimizer = optim.AdamW(
+            params,
+            lr=opt.learning_rate,
+            betas=betas,
+            eps=1e-9)
+    elif opt.optim == 'radam':
+        import radam    
+        optimizer = radam.RAdam(
+            params,
+            lr=opt.learning_rate,
+            betas=betas,
+            eps=1e-9)
     elif opt.optim == 'sparseadam':
         dense = []
         sparse = []

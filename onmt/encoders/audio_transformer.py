@@ -138,7 +138,7 @@ class AudioTransformerEncoder(EncoderBase):
 
         input_size = int(math.floor((sample_rate * window_size) / 2) + 1) if fbank_dim == 0 else fbank_dim
         print(f"input_size={input_size}")
-        self.embeddings = AudioEmbedding(input_size, d_model)
+        self.embeddings = AudioEmbedding(input_size, d_model,dropout=dropout)
         self.transformer = nn.ModuleList(
             [TransformerEncoderLayer(
                 d_model, heads, d_ff, dropout, attention_dropout,
@@ -161,7 +161,7 @@ class AudioTransformerEncoder(EncoderBase):
             opt.max_relative_positions,
             opt.sample_rate,
             opt.window_size,
-            opt.fbank_dim)
+            int(opt.fbank_dim))
 
     def forward(self, src, lengths=None):
         """See :func:`EncoderBase.forward()`"""

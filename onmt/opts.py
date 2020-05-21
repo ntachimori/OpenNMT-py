@@ -503,7 +503,7 @@ def train_opts(parser):
               nargs="*", default=None,
               help='Criteria to use for early stopping.')
     group.add('--optim', '-optim', default='sgd',
-              choices=['sgd', 'adagrad', 'adadelta', 'adam',
+              choices=['sgd', 'adagrad', 'adadelta', 'adam', 'adamw', 'radam',
                        'sparseadam', 'adafactor', 'fusedadam'],
               help="Optimization method.")
     group.add('--adagrad_accumulator_init', '-adagrad_accumulator_init',

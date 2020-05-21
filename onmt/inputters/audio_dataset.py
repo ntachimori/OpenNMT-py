@@ -49,7 +49,7 @@ class AudioDataReader(DataReaderBase):
     @classmethod
     def from_opt(cls, opt):
         return cls(sample_rate=opt.sample_rate, window_size=opt.window_size,
-                   window_stride=opt.window_stride, window=opt.window, use_fbank=opt.fbank_dim)
+                   window_stride=opt.window_stride, window=opt.window, fbank_dim=int(opt.fbank_dim))
 
     @classmethod
     def _check_deps(cls):

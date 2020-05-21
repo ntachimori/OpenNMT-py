@@ -97,7 +97,7 @@ class AudioEncoder(EncoderBase):
             opt.dropout,
             opt.sample_rate,
             opt.window_size,
-            opt.fbank_dim)
+            int(opt.fbank_dim))
 
     def forward(self, src, lengths=None):
         """See :func:`onmt.encoders.encoder.EncoderBase.forward()`"""
