@@ -312,7 +312,7 @@ class TransformerDecoder(DecoderBase):
 
         pad_idx = self.embeddings.word_padding_idx
         src_lens = kwargs["memory_lengths"]
-        src_max_len = self.state["src"].shape[0] if not self.audio_model else self.state["src"].shape[3] 
+        src_max_len = self.state["src"].shape[0] if not self.audio_model else memory_bank.shape[0] 
         src_pad_mask = ~sequence_mask(src_lens, src_max_len).unsqueeze(1)
         tgt_pad_mask = tgt_words.data.eq(pad_idx).unsqueeze(1)  # [B, 1, T_tgt]
 
