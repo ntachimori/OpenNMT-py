@@ -40,10 +40,10 @@ class AudioEmbedding(nn.Module):
     def forward(self, x, step=None):
         """
         Args:
-            x (FloatTensor): input, ``(len, batch, vec_feats)``.
+            x (FloatTensor): input, ``(t, batch, vec_feats)``.
 
         Returns:
-            FloatTensor: embedded vecs ``(len, batch, embedding_size)``.
+            FloatTensor: embedded vecs ``(t, batch, embedding_size)``.
         """
         x = self.proj(x).squeeze(2)
         if self.position_encoding:
@@ -63,6 +63,7 @@ class Conv2dSubsampling(torch.nn.Module):
     def __init__(self, idim, odim, dropout_rate):
         """Construct an Conv2dSubsampling object."""
         super(Conv2dSubsampling, self).__init__()
+        self.embedding_size = odim
         self.conv = torch.nn.Sequential(
             torch.nn.Conv2d(1, odim, 3, 2),
             torch.nn.ReLU(),
@@ -71,24 +72,30 @@ class Conv2dSubsampling(torch.nn.Module):
         )
         self.out = torch.nn.Sequential(
             torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim),
-            PositionalEncoding(dropout_rate, self.embedding_size)
+            PositionalEncoding(dropout_rate, odim)
         )
 
-    def forward(self, x, x_mask):
+    def forward(self, x, x_mask, lengths):
         """Subsample x.
         :param torch.Tensor x: input tensor(t, batch_size, nfft)
         :param torch.Tensor x_mask: input mask
         :return: subsampled x and mask
         :rtype Tuple[torch.Tensor, torch.Tensor]
         """
+        # print("(t, b, f)=",x.shape)    
         x = x.transpose(0, 1).contiguous().unsqueeze(1)  # (t, b, f) -> (b, t, f) -> (b, c, t, f)
         x = self.conv(x)
         b, c, t, f = x.size()
-        # (b, c, t, f) -> (b, t, c, f) -> (b, t, c*f)
-        x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
+        # (b, c, t, f) -> (b, t, c, f) -> (b, t, c*f) -> (t, b, c*f)
+        x = self.out(x.transpose(1, 2).transpose(0, 1).contiguous().view(t, b, c * f))
+        # x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
+        # x = x.transpose(0, 1).contiguous()
         if x_mask is None:
             return x, None
-        return x, x_mask[:, :, :-2:2][:, :, :-2:2]
+        # print("(t, b, c*f)=",x.shape)    
+        # print("org x_mask=",x_mask.shape)    
+        # print("x_mask=",x_mask[:, :, :-2:2][:, :, :-2:2].shape)    
+        return x, x_mask[:, :, :-2:2][:, :, :-2:2], lengths//4
 
     def load_pretrained_vectors(self, file):
         assert not file
@@ -215,7 +222,7 @@ class AudioTransformerEncoder(EncoderBase):
         self._check_args(src, lengths)
 
         mask = ~sequence_mask(lengths).unsqueeze(1)
-        emb, mask = self.embeddings(src, mask)
+        emb, mask, lengths  = self.embeddings(src, mask, lengths)
         # emb = self.embeddings(src)
 
         # (t, batch_size, nfft) -> (batch_size, t, nfft)
