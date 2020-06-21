@@ -239,6 +239,8 @@ def preprocess_opts(parser):
 
     group.add('--train_src', '-train_src', required=True, nargs='+',
               help="Path(s) to the training source data")
+    group.add('--train_audio_src', '-train_audio_src', required=True, nargs='+',
+              help="Path(s) to the training source data")
     group.add('--train_tgt', '-train_tgt', required=True, nargs='+',
               help="Path(s) to the training target data")
     group.add('--train_align', '-train_align', nargs='+', default=[None],
@@ -247,6 +249,8 @@ def preprocess_opts(parser):
               help="ids to name training shards, used for corpus weighting")
 
     group.add('--valid_src', '-valid_src',
+              help="Path to the validation source data")
+    group.add('--valid_audio_src', '-valid_audio_src',
               help="Path to the validation source data")
     group.add('--valid_tgt', '-valid_tgt',
               help="Path to the validation target data")
