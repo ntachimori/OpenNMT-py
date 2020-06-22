@@ -109,7 +109,8 @@ def get_fields(
     dynamic_dict=False,
     with_align=False,
     src_truncate=None,
-    tgt_truncate=None
+    tgt_truncate=None,
+    use_dialog_audio_src=False
 ):
     """
     Args:
@@ -154,6 +155,15 @@ def get_fields(
                         "truncate": src_truncate,
                         "base_name": "src"}
     fields["src"] = fields_getters[src_data_type](**src_field_kwargs)
+
+    if use_dialog_audio_src:
+        audio_src_field_kwargs = {
+                            "n_feats": n_src_feats,
+                            "include_lengths": True,
+                            "pad": pad, "bos": None, "eos": None,
+                            "truncate": src_truncate,
+                            "base_name": "audio_src"}
+        fields["audio_src"] = fields_getters["audio"](**audio_src_field_kwargs)
 
     tgt_field_kwargs = {"n_feats": n_tgt_feats,
                         "include_lengths": False,
