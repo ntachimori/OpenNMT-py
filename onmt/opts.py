@@ -85,12 +85,18 @@ def model_opts(parser):
               help='Number of layers in enc/dec.')
     group.add('--enc_layers', '-enc_layers', type=int, default=2,
               help='Number of layers in the encoder')
+    group.add('--audio_enc_layers', '-audio_enc_layers', type=int, default=2,
+              help='Number of layers in the encoder')
     group.add('--dec_layers', '-dec_layers', type=int, default=2,
               help='Number of layers in the decoder')
     group.add('--rnn_size', '-rnn_size', type=int, default=-1,
               help="Size of rnn hidden states. Overwrites "
                    "enc_rnn_size and dec_rnn_size")
     group.add('--enc_rnn_size', '-enc_rnn_size', type=int, default=500,
+              help="Size of encoder rnn hidden states. "
+                   "Must be equal to dec_rnn_size except for "
+                   "speech-to-text.")
+    group.add('--audio_enc_rnn_size', '-audio_enc_rnn_size', type=int, default=500,
               help="Size of encoder rnn hidden states. "
                    "Must be equal to dec_rnn_size except for "
                    "speech-to-text.")
