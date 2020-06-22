@@ -25,8 +25,8 @@ class TextDataReader(DataReaderBase):
             values are more or less the result of tokenizing with those
             fields.
         """
-        assert _dir is None or _dir == "", \
-            "Cannot use _dir with TextDataReader."
+        # assert _dir is None or _dir == "", \
+        #    "Cannot use _dir with TextDataReader."
         if isinstance(sequences, str):
             sequences = DataReaderBase._read_file(sequences)
         for i, seq in enumerate(sequences):
