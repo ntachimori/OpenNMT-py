@@ -239,7 +239,7 @@ def preprocess_opts(parser):
 
     group.add('--train_src', '-train_src', required=True, nargs='+',
               help="Path(s) to the training source data")
-    group.add('--train_audio_src', '-train_audio_src', required=True, nargs='+',
+    group.add('--train_audio_src', '-train_audio_src', required=False, nargs='+',
               help="Path(s) to the training source data")
     group.add('--train_tgt', '-train_tgt', required=True, nargs='+',
               help="Path(s) to the training target data")
