@@ -203,7 +203,7 @@ def model_opts(parser):
 
     # Dialog network options
     group.add('--dialog_network', '-dialog_network',
-              type=str, action="type1",
+              type=str, default="type1",
               help='Whether alignment is conditioned on full target context.')
 
     # Generator and loss options.
