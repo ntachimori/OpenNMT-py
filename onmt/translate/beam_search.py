@@ -113,7 +113,10 @@ class BeamSearch(DecodeStrategy):
         if device is None:
             device = mb_device
 
-        self.memory_lengths = tile(src_lengths, self.beam_size)
+        if isinstance(src_lengths, tuple):
+            self.memory_lengths = tuple(tile(x, self.beam_size) for x in src_lengths)
+        else:
+            self.memory_lengths = tile(src_lengths, self.beam_size)
         super(BeamSearch, self).initialize(
             memory_bank, self.memory_lengths, src_map, device)
         self.best_scores = torch.full(
