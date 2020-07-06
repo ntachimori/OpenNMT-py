@@ -201,6 +201,11 @@ def model_opts(parser):
               action="store_true",
               help='Whether alignment is conditioned on full target context.')
 
+    # Dialog network options
+    group.add('--dialog_network', '-dialog_network',
+              type=str, action="type1",
+              help='Whether alignment is conditioned on full target context.')
+
     # Generator and loss options.
     group = parser.add_argument_group('Generator')
     group.add('--copy_attn', '-copy_attn', action="store_true",
