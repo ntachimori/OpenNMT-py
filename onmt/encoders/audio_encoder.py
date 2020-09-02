@@ -112,7 +112,7 @@ class AudioEncoder(EncoderBase):
             pool = getattr(self, 'pool_%d' % l)
             batchnorm = getattr(self, 'batchnorm_%d' % l)
             stride = self.enc_pooling[l]
-            packed_emb = pack(src, lengths)
+            packed_emb = pack(src, lengths, enforce_sorted=False)
             memory_bank, tmp = rnn(packed_emb)
             memory_bank = unpack(memory_bank)[0]
             t, _, _ = memory_bank.size()
